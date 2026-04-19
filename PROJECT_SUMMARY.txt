@@ -1,0 +1,397 @@
+================================================================================
+  NexusAI — Multimodal Agentic Assistant
+  Project Summary
+  April 2026
+================================================================================
+
+
+WHAT THIS PROJECT IS
+--------------------
+
+NexusAI is a locally-hosted, multimodal, agentic AI assistant built as a
+Machine Learning course project. It demonstrates the practical application of
+transformer architectures, attention mechanisms, retrieval-augmented generation
+(RAG), and instruction-tuned language models. Everything runs on-device using
+Ollama for model serving — no cloud APIs or external services required.
+
+The system acts as a personal AI assistant that can understand text, voice, and
+images. A central LLM orchestrator (Llama 3) classifies what the user wants and
+routes the request to one of several specialist "agents," each designed for a
+specific task. A web-based dashboard serves as the frontend, with a built-in ML
+Pipeline Inspector that visualizes every step of the inference process in
+real-time.
+
+
+MODELS USED (ALL LOCAL)
+-----------------------
+
+  1. Llama 3 (8B) — Decoder-only transformer with 32 layers, Grouped-Query
+     Attention, SwiGLU activation, and RoPE positional encoding. Serves as
+     the orchestrator for intent classification and the backbone for all text
+     generation agents. Instruction-tuned (SFT + RLHF) so it can reliably
+     produce structured JSON output.
+
+  2. LLaVA — Vision-language model that fuses a CLIP ViT-L/14 visual encoder
+     with an LLM decoder via a learned 2-layer MLP projection. Used for image
+     analysis, receipt parsing, and general image-conditioned chat.
+
+  3. Whisper (small, 244M params) — Encoder-decoder transformer for automatic
+     speech recognition. Converts audio to log-Mel spectrograms, processes
+     through 12 encoder layers (bidirectional self-attention) and 12 decoder
+     layers (causal self-attention + cross-attention), and outputs text.
+
+  4. nomic-embed-text (137M params) — BERT-like encoder that produces 768-
+     dimensional dense vectors using mean pooling and contrastive learning.
+     Used for all embedding operations in the RAG memory system.
+
+
+ARCHITECTURE OVERVIEW
+---------------------
+
+  User Input (text / voice / image)
+       |
+       v
+  [Whisper ASR]  — if voice, transcribe to text
+  [LLaVA]        — if image, extract visual features
+       |
+       v
+  LLM Orchestrator (Llama 3)
+       |
+       +--> Intent Classification (structured JSON output)
+       |         |
+       |         v
+       +--> RAG Context Retrieval (ChromaDB cosine similarity search)
+       |         |
+       |         v
+       +--> Agent Routing --> Specialist Agent Execution
+       |         |
+       |         v
+       +--> Memory Storage (embed and store both query and response)
+       |
+       v
+  Response returned to user with full pipeline telemetry
+
+
+WHAT HAS BEEN BUILT
+--------------------
+
+The entire application is functional end-to-end. Here is a breakdown of every
+component that has been implemented:
+
+
+1. BACKEND (Python / FastAPI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   main.py (FastAPI Server)
+   - REST API endpoints: /api/chat, /api/voice, /api/image, /api/document,
+     /api/health, /api/history, /api/tasks, /api/memory/stats,
+     /api/memory/clear
+   - Advanced endpoints: /api/embeddings/visualize (t-SNE projection of all
+     stored vectors), /api/prompt-lab (shows assembled prompt construction),
+     /api/models/compare (benchmarks all installed Ollama models side by side)
+   - WebSocket endpoint: /ws/chat for streaming chat
+   - Static file serving for the frontend dashboard
+   - Lazy-loaded orchestrator initialization
+   - Full CORS configuration
+
+   orchestrator.py (LLM-Based Intent Classification & Agent Routing)
+   - Uses Llama 3 to classify user intent into one of 6 categories:
+     study_buddy, task_management, receipt_parsing, document_qa,
+     code_debugging, or general_chat
+   - Routes to the correct specialist agent based on classification
+   - Supports manual agent override from the sidebar
+   - Retrieves RAG context from ChromaDB before agent execution
+   - Stores both user and assistant messages in vector memory
+   - Returns full pipeline telemetry with timing for every stage
+
+   memory.py (ChromaDB RAG Memory Layer)
+   - Three persistent ChromaDB collections: conversations, documents, tasks
+   - All collections use HNSW indexing with cosine similarity
+   - Text embedding via Ollama's nomic-embed-text (768-dim vectors)
+   - Document ingestion: chunking with configurable size (500 chars) and
+     overlap (50 chars), batch embedding, and vector indexing
+   - Context retrieval: query embedding, cosine similarity search, top-k
+     results with similarity scores
+   - Supports PDF text extraction (PyPDF2), plain text, Markdown, and code
+     files (.py, .js, .html, .css)
+   - Conversation memory clear/reset functionality
+   - Detailed pipeline telemetry for embedding, indexing, and search stages
+
+   config.py (Central Configuration)
+   - All model names, paths, and API URLs in one place
+   - RAG parameters: chunk size, overlap, top-k, similarity threshold
+   - ChromaDB collection names
+   - System prompts for every agent (orchestrator, task manager, receipt
+     parser, document QA, code debugger, study buddy, general chat)
+   - Server host/port/CORS settings
+   - Environment variable overrides for all model settings
+
+   models/llm.py (Llama 3 Interface)
+   - Text generation with system prompt support
+   - Structured JSON output for intent classification (with fallback parsing)
+   - Streaming token generation via generator
+   - Detailed pipeline telemetry: tokenization, embedding lookup, transformer
+     forward pass (32 layers, GQA, SwiGLU, RMSNorm), output generation
+   - Health check (verifies Ollama is running and model is available)
+
+   models/vision.py (LLaVA Interface)
+   - Image analysis with base64 encoding
+   - Specialized receipt analysis with structured JSON extraction prompt
+   - Pipeline telemetry: image preprocessing, CLIP visual encoding, visual
+     projection (MLP), multimodal LLM decoding
+   - Health check for LLaVA availability
+
+   models/speech.py (Whisper ASR Interface)
+   - Lazy-loaded Whisper model (supports tiny through large)
+   - Audio transcription with language detection
+   - Pipeline telemetry: audio preprocessing (16kHz, log-Mel spectrogram),
+     encoder (bidirectional self-attention), decoder (causal + cross-attention),
+     post-processing
+   - Model parameter lookup table for all Whisper sizes
+   - Health check for Whisper availability
+
+
+2. SPECIALIST AGENTS
+~~~~~~~~~~~~~~~~~~~~
+
+   agents/base.py (Abstract Base Agent)
+   - Defines the interface all agents implement: execute(query, context, metadata)
+   - Shared context formatting utility for injecting RAG results into prompts
+
+   agents/study_buddy.py (Socratic Tutor)
+   - Uses Feynman technique and Socratic questioning
+   - Never gives direct answers to homework/math problems
+   - Guides students to arrive at answers themselves
+   - Supports note summarization and flashcard generation
+   - Grounded with RAG context from uploaded class materials
+
+   agents/task_manager.py (Task Management)
+   - Natural language CRUD for tasks/todos/reminders
+   - Tasks persisted in a JSON file (data/tasks.json)
+   - LLM parses user request and generates structured JSON action
+     (create, list, complete, update, delete)
+   - Supports priority levels (low, medium, high) and completion tracking
+   - Returns current task list with each response
+
+   agents/receipt_parser.py (Receipt Analysis)
+   - Uses LLaVA for image-based receipt/invoice analysis
+   - Extracts: vendor, date, items with prices, subtotal, tax, total,
+     payment method
+   - Falls back to text-based LLM when no image is provided
+   - Can reference previously analyzed receipts via RAG context
+
+   agents/doc_qa.py (Document Q&A — RAG-Powered)
+   - Retrieves relevant document chunks from ChromaDB (top-5)
+   - Builds grounded prompt with retrieved context
+   - Generates responses that cite specific document passages
+   - Handles the case where no documents have been uploaded
+   - Also checks conversation history for additional context
+   - Document ingestion delegates to memory.store_document()
+
+   agents/code_debugger.py (Code Debugging)
+   - Multi-language code analysis (Python, JavaScript, Java, C++, SQL,
+     HTML, CSS)
+   - Simple language detection via keyword matching
+   - Identifies bugs, explains root cause, provides corrected code
+   - Suggests improvements and best practices
+
+
+3. FRONTEND (Vanilla HTML/CSS/JS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   index.html (Dashboard Layout)
+   - Three-column layout: sidebar, chat area, ML pipeline inspector
+   - Header with active model badges (Llama 3, LLaVA, Whisper, Nomic Embed),
+     system health status dot, "New Chat" and "Clear DB" buttons
+   - Sidebar: agent selector (Auto-Routing plus 5 specialist agents), vector
+     memory stats (conversations/documents/tasks counts), live task list,
+     document upload button
+   - Chat area: welcome screen with quick-prompt cards, message list with
+     markdown rendering, text input with voice recording button and image
+     upload button, stop generation button
+   - ML Pipeline Inspector (right panel) with 8 tabs:
+       * Pipeline: step-by-step breakdown of each inference call
+       * Architecture: interactive Llama 3 transformer architecture diagram
+         plus LLaVA and Whisper architecture specs
+       * Attention: simulated attention weight matrix with causal mask and
+         detailed explanation of scaled dot-product attention, multi-head
+         attention, and GQA
+       * Tokens: tokenization, embedding, transformer, and output visualization
+       * RAG: document chunking, embedding, and similarity search pipeline
+       * Embeddings: t-SNE 2D scatter plot of all stored vectors
+       * Prompts: prompt engineering lab showing assembled system/RAG/user
+         prompt construction
+       * Models: model comparison benchmark across all installed Ollama models
+
+   index.css (~27KB Design System)
+   - Dark theme with CSS custom properties for colors, spacing, radii
+   - Glassmorphism effects, smooth gradients, glowing accents
+   - Micro-animations and hover effects throughout
+   - Responsive layout, scroll behavior, and typography
+   - Styling for all pipeline cards, architecture diagrams, attention matrix,
+     token flow, embedding scatter plot, and model comparison cards
+
+   app.js (~52KB Application Logic)
+   - Chat message handling with markdown rendering
+   - Agent selection and manual routing override
+   - Voice recording via MediaRecorder API (sends to /api/voice)
+   - Image upload and drag-and-drop (sends to /api/image)
+   - Document upload and RAG ingestion (sends to /api/document)
+   - Pipeline visualization rendering for all pipeline stage types
+   - Architecture diagram interactivity
+   - Attention matrix rendering (simulated causal attention heatmap)
+   - Token flow visualization
+   - RAG pipeline visualization
+   - t-SNE embedding space visualization (fetch from /api/embeddings/visualize
+     and render as interactive scatter plot)
+   - Prompt engineering lab (fetch from /api/prompt-lab)
+   - Model comparison benchmark (fetch from /api/models/compare)
+   - Auto-resize textarea, keyboard shortcuts (Enter to send)
+   - Stop generation feature using AbortController
+   - Task list polling and rendering
+   - Memory stats polling
+   - Health check polling with status indicator
+   - New chat / clear database functionality
+
+
+4. EVALUATION SUITE
+~~~~~~~~~~~~~~~~~~~
+
+   test_suite.json
+   - 20 curated test cases covering all 6 intent categories
+   - Each test has: input text, expected intent, and description
+   - Covers edge cases like code with context, follow-up questions, and bulk
+     operations
+
+   eval_routing.py (Routing Accuracy)
+   - Runs all 20 test cases through the orchestrator's intent classifier
+   - Measures overall accuracy, per-class precision/recall/F1
+   - Generates and prints a confusion matrix
+   - Saves results to routing_results.json
+
+   eval_rag.py (RAG Retrieval Quality)
+   - Ingests a test document (5 chapters about transformers)
+   - Runs 6 queries with known relevant chapters
+   - Measures: Mean Reciprocal Rank (MRR), Precision@3, and mean cosine
+     similarity score
+   - Cleans up test data after evaluation
+
+
+5. DATA & STORAGE
+~~~~~~~~~~~~~~~~~
+
+   data/chroma_db/     — Persistent ChromaDB vector database
+   data/uploads/       — Uploaded files (audio, images, documents)
+   data/tasks.json     — Persistent task storage (created at runtime)
+
+
+ML CONCEPTS DEMONSTRATED
+-------------------------
+
+  1. Transformer Architecture — Decoder-only (Llama 3) and encoder-decoder
+     (Whisper), with detailed telemetry showing each architectural component.
+
+  2. Attention Mechanism — Scaled dot-product attention (QKᵀ/√dₖ), multi-head
+     attention, causal masking, and Grouped-Query Attention (GQA).
+
+  3. Instruction Tuning — Why Llama 3 can follow structured JSON output
+     formats (SFT + RLHF training).
+
+  4. Retrieval-Augmented Generation (RAG) — Dense retrieval with cosine
+     similarity, HNSW approximate nearest neighbor search, context grounding,
+     and hallucination reduction.
+
+  5. Vision-Language Models — CLIP visual encoder (ViT-L/14 patch embeddings)
+     fused with LLM decoder via learned MLP projection.
+
+  6. Automatic Speech Recognition — Audio to log-Mel spectrogram, encoder
+     with bidirectional self-attention, decoder with cross-attention.
+
+  7. Embedding Spaces — 768-dim dense vectors from contrastive learning,
+     t-SNE dimensionality reduction for visualization.
+
+  8. Agentic Architecture — LLM-based intent classification, multi-agent
+     routing, and specialist agent execution with full observability.
+
+
+TECHNOLOGY STACK
+----------------
+
+  Backend:   Python 3, FastAPI, Uvicorn, Pydantic
+  LLM:       Ollama (local model serving)
+  Vector DB: ChromaDB (persistent, HNSW indexing, cosine similarity)
+  ASR:       OpenAI Whisper (openai-whisper package)
+  Documents: PyPDF2, Pillow
+  Frontend:  Vanilla HTML5 + CSS3 + JavaScript (no frameworks)
+  Viz:       scikit-learn (t-SNE), NumPy
+
+
+HOW TO RUN
+----------
+
+  1. Install and start Ollama:
+       brew install ollama
+       ollama serve
+
+  2. Pull models (in a second terminal):
+       ollama pull llama3
+       ollama pull llava
+       ollama pull nomic-embed-text
+
+  3. Install Python dependencies:
+       pip install -r backend/requirements.txt
+
+  4. Start the server:
+       python -m backend.main
+
+  5. Open http://localhost:8000 in a browser.
+
+
+FILE LISTING
+------------
+
+  ML_Project/
+  ├── README.md                        Project readme
+  ├── PROJECT_SUMMARY.txt              This file
+  ├── backend/
+  │   ├── __init__.py                  Package init
+  │   ├── main.py                      FastAPI server (594 lines)
+  │   ├── config.py                    Central configuration (90 lines)
+  │   ├── orchestrator.py              Intent classification & routing (230 lines)
+  │   ├── memory.py                    ChromaDB RAG memory layer (328 lines)
+  │   ├── requirements.txt             Python dependencies
+  │   ├── models/
+  │   │   ├── __init__.py              Package init
+  │   │   ├── llm.py                   Llama 3 interface (213 lines)
+  │   │   ├── vision.py                LLaVA interface (174 lines)
+  │   │   └── speech.py                Whisper ASR interface (170 lines)
+  │   └── agents/
+  │       ├── __init__.py              Package init
+  │       ├── base.py                  Abstract base agent (51 lines)
+  │       ├── study_buddy.py           Socratic tutor agent (51 lines)
+  │       ├── task_manager.py          Task management agent (166 lines)
+  │       ├── receipt_parser.py        Receipt analysis agent (68 lines)
+  │       ├── doc_qa.py                Document Q&A agent (97 lines)
+  │       └── code_debugger.py         Code debugging agent (79 lines)
+  ├── frontend/
+  │   ├── index.html                   Dashboard markup (394 lines)
+  │   ├── index.css                    Design system (27KB)
+  │   └── app.js                       Application logic (52KB)
+  ├── evaluation/
+  │   ├── test_suite.json              20 test cases
+  │   ├── eval_routing.py              Routing accuracy eval (138 lines)
+  │   └── eval_rag.py                  RAG retrieval quality eval (193 lines)
+  └── data/
+      ├── chroma_db/                   Persistent vector database
+      └── uploads/                     Uploaded files
+
+  Total: ~25 source files, ~2,800 lines of backend Python, ~76KB of frontend
+         code, plus evaluation scripts and test data.
+
+
+LICENSE
+-------
+
+  MIT — Educational project for Machine Learning coursework.
+
+================================================================================

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NexusAI — Locally-hosted multimodal agentic assistant with real-time ML pipeline visualization.">
+    <title>NexusAI — Multimodal Agentic Assistant</title>
+    <link rel="stylesheet" href="/static/index.css?v=2">
+</head>
+<body>
+
+<div class="app" id="app">
+
+    <!-- ─── Header ───────────────────────────────────────── -->
+    <header class="header">
+        <div class="header-brand">
+            <div class="header-logo">N</div>
+            <div>
+                <div class="header-title">NexusAI</div>
+                <div class="header-subtitle">Multimodal Agentic Assistant</div>
+            </div>
+        </div>
+        <div class="header-models" style="display:flex; gap:12px; margin-left:40px; align-items:center; flex:1">
+            <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; font-weight:600;">ACTIVE MODELS</div>
+            <span style="background:var(--accent-dim); color:var(--accent); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">🧠 Llama 3</span>
+            <span style="background:var(--accent-orange-dim); color:var(--accent-orange); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">👁️ LLaVA</span>
+            <span style="background:var(--accent-pink-dim); color:var(--accent-pink); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">🎙️ Whisper</span>
+            <span style="background:var(--accent-blue-dim); color:var(--accent-blue); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">📐 Nomic Embed</span>
+        </div>
+        
+        <div class="header-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span style="font-size:11px;color:var(--text-muted)" id="statusText">Checking...</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn" style="background:transparent; color: var(--accent-blue);" onclick="startNewChat()">✨ New Chat</button>
+            <button class="btn" style="background:transparent; color: var(--accent-red);" onclick="clearDatabase()">🗑️ Clear DB</button>
+        </div>
+    </header>
+
+    <!-- ─── Sidebar ──────────────────────────────────────── -->
+    <aside class="sidebar">
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">⚡ Agents</div>
+            <div class="agent-list" id="agentList">
+                <div class="agent-card active" data-agent="general_chat" onclick="selectAgent('general_chat')">
+                    <div class="agent-dot" style="background:var(--accent)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Auto-Routing</span>
+                </div>
+                <div class="agent-card" data-agent="task_management" onclick="selectAgent('task_management')">
+                    <div class="agent-dot" style="background:var(--accent-blue)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Task Manager</span>
+                </div>
+                <div class="agent-card" data-agent="study_buddy" onclick="selectAgent('study_buddy')">
+                    <div class="agent-dot" style="background:var(--accent-purple)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Study Buddy</span>
+                </div>
+                <div class="agent-card" data-agent="receipt_parsing" onclick="selectAgent('receipt_parsing')">
+                    <div class="agent-dot" style="background:var(--accent-orange)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Receipt Parser</span>
+                </div>
+                <div class="agent-card" data-agent="document_qa" onclick="selectAgent('document_qa')">
+                    <div class="agent-dot" style="background:var(--accent-green)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Document Q&A</span>
+                </div>
+                <div class="agent-card" data-agent="code_debugging" onclick="selectAgent('code_debugging')">
+                    <div class="agent-dot" style="background:var(--accent-cyan)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Code Debugger</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">🧠 Vector Memory</div>
+            <div class="memory-stats">
+                <div class="stat-row">
+                    <span class="stat-label">Conversations</span>
+                    <span class="stat-value" id="memConversations">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Documents</span>
+                    <span class="stat-value" id="memDocuments">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Task Vectors</span>
+                    <span class="stat-value" id="memTasks">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">📋 Tasks</div>
+            <div class="task-list" id="taskList">
+                <div style="font-size:11px;color:var(--text-muted);">No tasks yet.</div>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">📄 Documents</div>
+            <label class="btn" style="width:100%;justify-content:center;cursor:pointer;">
+                📎 Upload Document
+                <input type="file" id="docUpload" accept=".pdf,.txt,.md,.py,.js" style="display:none" onchange="uploadDocument(event)">
+            </label>
+        </div>
+
+    </aside>
+
+    <!-- ─── Chat Area ────────────────────────────────────── -->
+    <main class="chat-area">
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-icon">🤖</div>
+                <h1 class="welcome-title" id="welcomeTitle">Welcome to NexusAI</h1>
+                <p class="welcome-desc" id="welcomeDesc">
+                    Ask anything — NexusAI routes your request to the right specialist agent automatically.
+                    Watch the ML pipeline execute in real-time on the right panel.
+                </p>
+                <div class="welcome-agents">
+                    <div class="welcome-agent-card" onclick="quickPrompt('Create a task to review transformer attention mechanisms')">
+                        <div class="welcome-agent-icon">📋</div>
+                        <div class="welcome-agent-name">Task Manager</div>
+                        <div class="welcome-agent-desc">Natural language task management</div>
+                    </div>
+                    <div class="welcome-agent-card" onclick="quickPrompt('Explain how self-attention works in transformers and why we scale by sqrt(dk)')">
+                        <div class="welcome-agent-icon">💬</div>
+                        <div class="welcome-agent-name">General Chat</div>
+                        <div class="welcome-agent-desc">Context-aware conversation</div>
+                    </div>
+                    <div class="welcome-agent-card" onclick="quickPrompt('What does the uploaded document say about RAG?')">
+                        <div class="welcome-agent-icon">📄</div>
+                        <div class="welcome-agent-name">Document Q&A</div>
+                        <div class="welcome-agent-desc">RAG-powered document analysis</div>
+                    </div>
+                    <div class="welcome-agent-card" onclick="quickPrompt('Debug: def fib(n): return fib(n-1) + fib(n-2)\nThis has infinite recursion, what is the fix?')">
+                        <div class="welcome-agent-icon">🐛</div>
+                        <div class="welcome-agent-name">Code Debugger</div>
+                        <div class="welcome-agent-desc">Debug code and explain errors</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div class="input-actions">
+                    <button class="input-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice Input (Whisper ASR)">🎤</button>
+                    <label class="input-btn" title="Upload Image (LLaVA)">
+                        🖼️
+                        <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="uploadImage(event)">
+                    </label>
+                </div>
+                <textarea class="input-field" id="messageInput"
+                    placeholder="Ask anything... NexusAI routes to the right agent"
+                    rows="1" onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+                <button class="send-btn" id="stopBtn" onclick="stopMessage()" style="display:none; background: var(--accent-red); margin-left: 5px;">⏹</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ─── ML Pipeline Inspector (RIGHT PANEL — MAIN FOCUS) ── -->
+    <aside class="visualizer-panel" id="visualizerPanel">
+        <div class="visualizer-header">
+            <div class="visualizer-title">🔬 ML Pipeline Inspector</div>
+        </div>
+
+        <div class="visualizer-tabs">
+            <button class="viz-tab active" data-tab="pipeline" onclick="switchVizTab('pipeline')">Pipeline</button>
+            <button class="viz-tab" data-tab="architecture" onclick="switchVizTab('architecture')">Arch</button>
+            <button class="viz-tab" data-tab="attention" onclick="switchVizTab('attention')">Attention</button>
+            <button class="viz-tab" data-tab="tokens" onclick="switchVizTab('tokens')">Tokens</button>
+            <button class="viz-tab" data-tab="rag" onclick="switchVizTab('rag')">RAG</button>
+            <button class="viz-tab" data-tab="embeddings" onclick="switchVizTab('embeddings')">Embed</button>
+            <button class="viz-tab" data-tab="promptlab" onclick="switchVizTab('promptlab')">Prompts</button>
+            <button class="viz-tab" data-tab="models" onclick="switchVizTab('models')">Models</button>
+        </div>
+
+        <div class="visualizer-content" id="vizContent">
+
+            <!-- Pipeline View -->
+            <div class="pipeline-view" id="pipelineView">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔬</div>
+                    <div class="empty-state-text">
+                        Send a message to see the full ML inference pipeline.<br>
+                        Every transformer layer, attention computation, and memory lookup is logged here.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture View -->
+            <div class="architecture-view" id="architectureView" style="display:none">
+                <div class="arch-diagram">
+                    <div class="arch-layer" id="archInput">
+                        <div class="arch-layer-title">① Input Embedding</div>
+                        <div class="arch-layer-desc">
+                            Text → BPE Tokenizer → Token IDs → Embedding Matrix (128,256 × 4096)
+                            → Add RoPE positional encoding
+                        </div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+
+                    <div class="arch-layer" id="archAttention">
+                        <div class="arch-layer-title">② Multi-Head Self-Attention × 32 Layers</div>
+                        <div class="arch-layer-desc">
+                            Input → Q, K, V linear projections → Grouped-Query Attention (32 Q heads, 8 KV heads)
+                            → Causal mask (no future tokens) → Weighted sum → Concat → Output projection
+                        </div>
+                        <div class="arch-formula">Attention(Q,K,V) = softmax(QKᵀ / √dₖ) · V</div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+
+                    <div class="arch-layer" id="archFFN">
+                        <div class="arch-layer-title">③ Feed-Forward Network (SwiGLU)</div>
+                        <div class="arch-layer-desc">
+                            RMSNorm → Gate projection × Up projection → SiLU activation → Down projection (14336 → 4096) → Residual connection
+                        </div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+
+                    <div class="arch-layer" id="archOutput">
+                        <div class="arch-layer-title">④ Output Head</div>
+                        <div class="arch-layer-desc">
+                            Final RMSNorm → Linear projection to vocab logits (4096 → 128,256)
+                            → Temperature scaling → Top-p sampling → Token → Detokenize
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arch-specs">
+                    <div class="arch-specs-title">Llama 3 (8B) Architecture</div>
+                    <div class="pipeline-details">
+                        <div class="detail-row"><span class="detail-key">Parameters</span><span class="detail-value">8 Billion</span></div>
+                        <div class="detail-row"><span class="detail-key">Layers</span><span class="detail-value">32</span></div>
+                        <div class="detail-row"><span class="detail-key">Hidden Dim</span><span class="detail-value">4,096</span></div>
+                        <div class="detail-row"><span class="detail-key">Attention Heads</span><span class="detail-value">32 Q, 8 KV (GQA)</span></div>
+                        <div class="detail-row"><span class="detail-key">Head Dim</span><span class="detail-value">128</span></div>
+                        <div class="detail-row"><span class="detail-key">FFN Hidden</span><span class="detail-value">14,336</span></div>
+                        <div class="detail-row"><span class="detail-key">Vocab</span><span class="detail-value">128,256 tokens</span></div>
+                        <div class="detail-row"><span class="detail-key">Context</span><span class="detail-value">8,192 tokens</span></div>
+                        <div class="detail-row"><span class="detail-key">Pos Encoding</span><span class="detail-value">RoPE</span></div>
+                        <div class="detail-row"><span class="detail-key">Norm</span><span class="detail-value">RMSNorm (pre-norm)</span></div>
+                        <div class="detail-row"><span class="detail-key">Activation</span><span class="detail-value">SwiGLU</span></div>
+                        <div class="detail-row"><span class="detail-key">Training</span><span class="detail-value">Pre-train → SFT → RLHF</span></div>
+                    </div>
+                </div>
+
+                <div class="arch-specs" style="margin-top:10px;">
+                    <div class="arch-specs-title">LLaVA (Vision-Language)</div>
+                    <div class="pipeline-details">
+                        <div class="detail-row"><span class="detail-key">Visual Encoder</span><span class="detail-value">CLIP ViT-L/14</span></div>
+                        <div class="detail-row"><span class="detail-key">Patch Size</span><span class="detail-value">14 × 14</span></div>
+                        <div class="detail-row"><span class="detail-key">Visual Tokens</span><span class="detail-value">576</span></div>
+                        <div class="detail-row"><span class="detail-key">Projection</span><span class="detail-value">2-layer MLP (1024 → 4096)</span></div>
+                        <div class="detail-row"><span class="detail-key">LLM Backend</span><span class="detail-value">Vicuna / Llama</span></div>
+                    </div>
+                </div>
+
+                <div class="arch-specs" style="margin-top:10px;">
+                    <div class="arch-specs-title">Whisper (Speech-to-Text)</div>
+                    <div class="pipeline-details">
+                        <div class="detail-row"><span class="detail-key">Architecture</span><span class="detail-value">Encoder-Decoder Transformer</span></div>
+                        <div class="detail-row"><span class="detail-key">Size (small)</span><span class="detail-value">244M parameters</span></div>
+                        <div class="detail-row"><span class="detail-key">Encoder</span><span class="detail-value">12 layers, 768 dim, 12 heads</span></div>
+                        <div class="detail-row"><span class="detail-key">Decoder</span><span class="detail-value">12 layers + cross-attention</span></div>
+                        <div class="detail-row"><span class="detail-key">Input</span><span class="detail-value">80-ch log-Mel spectrogram</span></div>
+                        <div class="detail-row"><span class="detail-key">Training Data</span><span class="detail-value">680K hours multilingual</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attention View -->
+            <div class="attention-view" id="attentionView" style="display:none">
+                <div class="attention-info">
+                    <h3>Self-Attention Weights (Simulated)</h3>
+                    <p>
+                        Each cell shows how strongly one token attends to another. Brighter = higher weight.
+                        The upper triangle is masked (causal attention — tokens cannot see the future).
+                    </p>
+                </div>
+                <div class="attention-matrix-wrap">
+                    <div id="attentionMatrix" class="attention-matrix"></div>
+                </div>
+                <div class="attention-explanation">
+                    <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px;">THE ATTENTION MECHANISM</div>
+                    <div class="formula">Attention(Q, K, V) = softmax(QKᵀ / √dₖ) · V</div>
+                    <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin-top:8px;">
+                        <strong>Q</strong> (Query), <strong>K</strong> (Key), <strong>V</strong> (Value) are linear projections of the input.<br><br>
+                        <strong>Why scale by √dₖ?</strong> Without scaling, dot products grow proportionally to dₖ (dimension of keys).
+                        Large dot products push softmax into saturated regions where gradients vanish, making training unstable.
+                        Dividing by √dₖ keeps variance ≈ 1.<br><br>
+                        <strong>Multi-Head:</strong> 32 heads run in parallel, each with dₖ=128.
+                        Different heads learn different relationships — some track syntax, others semantics, others positional patterns.<br><br>
+                        <strong>GQA:</strong> Llama 3 uses Grouped-Query Attention — 32 query heads share 8 KV heads, reducing memory by 4× during inference while maintaining quality.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token Flow View -->
+            <div class="token-flow-view" id="tokenFlowView" style="display:none">
+                <div id="tokenFlowContainer" class="token-flow-container">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔤</div>
+                        <div class="empty-state-text">
+                            Send a message to visualize the full token lifecycle:<br>
+                            Text → Tokens → Embeddings → Transformer → Output Tokens → Text
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RAG View -->
+            <div class="rag-view" id="ragView" style="display:none">
+                <div id="ragPipeline"></div>
+            </div>
+
+            <!-- Embedding Space View (t-SNE) -->
+            <div class="embeddings-view" id="embeddingsView" style="display:none">
+                <div class="attention-info">
+                    <h3>Embedding Space Visualization</h3>
+                    <p>
+                        All stored vectors (conversations, documents, tasks) projected from 768 dimensions to 2D using t-SNE.
+                        Points that are close together have similar semantic meaning.
+                    </p>
+                </div>
+                <div id="embeddingCanvas" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);height:340px;position:relative;overflow:hidden;"></div>
+                <div id="embeddingStats" style="margin-top:10px;"></div>
+                <div style="margin-top:8px;text-align:center;">
+                    <button class="btn" onclick="loadEmbeddings()" id="loadEmbBtn">🔄 Refresh Visualization</button>
+                </div>
+            </div>
+
+            <!-- Prompt Lab View -->
+            <div class="promptlab-view" id="promptlabView" style="display:none">
+                <div class="attention-info">
+                    <h3>Prompt Engineering Lab</h3>
+                    <p>
+                        See exactly how prompts are assembled before being sent to the LLM.
+                        Enter a message below to trace the full prompt construction pipeline.
+                    </p>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <input type="text" id="promptLabInput" class="viz-input" placeholder="Try a message...">
+                    <button class="btn" onclick="runPromptLab()" id="promptLabBtn">Analyze</button>
+                </div>
+                <div id="promptLabResults">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🧪</div>
+                        <div class="empty-state-text">Enter a message to see how the system prompt, RAG context, and user input are assembled.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Comparison View -->
+            <div class="models-view" id="modelsView" style="display:none">
+                <div class="attention-info">
+                    <h3>Model Comparison Benchmark</h3>
+                    <p>
+                        Run the same prompt through all installed Ollama models.
+                        Compare latency, throughput (tokens/sec), and response quality side by side.
+                    </p>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <input type="text" id="modelCompareInput" class="viz-input" placeholder="Prompt to compare..." value="What is attention in transformers?">
+                    <button class="btn" onclick="runModelComparison()" id="modelCompareBtn">⚡ Run</button>
+                </div>
+                <div id="modelCompareResults">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🏎️</div>
+                        <div class="empty-state-text">Click "Run" to benchmark all installed models with the same prompt.</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </aside>
+
+</div>
+
+<!-- Upload Overlay -->
+<div class="upload-overlay" id="uploadOverlay">
+    <div class="upload-box">
+        <div class="upload-icon">📎</div>
+        <div class="upload-title">Drop file here</div>
+        <div class="upload-desc">Images → LLaVA analysis | Documents → RAG ingestion</div>
+    </div>
+</div>
+
+<script src="/static/app.js?v=2"></script>
+
+</body>
+</html>

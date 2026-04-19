@@ -1,0 +1,142 @@
+[
+  {
+    "id": 1,
+    "input": "Create a task to study attention mechanisms for the midterm",
+    "expected_intent": "task_management",
+    "input_type": "text",
+    "description": "Task creation with academic context"
+  },
+  {
+    "id": 2,
+    "input": "What are the key findings in section 3 of the uploaded paper?",
+    "expected_intent": "document_qa",
+    "input_type": "text",
+    "description": "Document Q&A requiring RAG retrieval"
+  },
+  {
+    "id": 3,
+    "input": "def bubble_sort(arr):\n  for i in range(len(arr)):\n    for j in range(len(arr)):\n      if arr[j] > arr[j+1]:\n        arr[j], arr[j+1] = arr[j+1], arr[j]\nI'm getting an index out of range error, why?",
+    "expected_intent": "code_debugging",
+    "input_type": "text",
+    "description": "Python debugging with IndexError"
+  },
+  {
+    "id": 4,
+    "input": "Analyze this receipt and tell me the total",
+    "expected_intent": "receipt_parsing",
+    "input_type": "text",
+    "description": "Receipt analysis request (no image provided)"
+  },
+  {
+    "id": 5,
+    "input": "Hello! How are you doing today?",
+    "expected_intent": "general_chat",
+    "input_type": "text",
+    "description": "Simple greeting"
+  },
+  {
+    "id": 6,
+    "input": "What tasks do I have pending?",
+    "expected_intent": "task_management",
+    "input_type": "text",
+    "description": "Task listing request"
+  },
+  {
+    "id": 7,
+    "input": "Summarize the document I uploaded earlier",
+    "expected_intent": "document_qa",
+    "input_type": "text",
+    "description": "Document summarization"
+  },
+  {
+    "id": 8,
+    "input": "Why is this JavaScript promise not resolving?\nasync function fetchData() {\n  const data = fetch('https://api.example.com/data');\n  return data.json();\n}",
+    "expected_intent": "code_debugging",
+    "input_type": "text",
+    "description": "JavaScript async/await debugging"
+  },
+  {
+    "id": 9,
+    "input": "Explain the difference between encoder-decoder and decoder-only transformers",
+    "expected_intent": "general_chat",
+    "input_type": "text",
+    "description": "ML concept explanation"
+  },
+  {
+    "id": 10,
+    "input": "Mark my first task as completed",
+    "expected_intent": "task_management",
+    "input_type": "text",
+    "description": "Task completion request"
+  },
+  {
+    "id": 11,
+    "input": "I have a photo of my grocery receipt from Whole Foods, can you parse it?",
+    "expected_intent": "receipt_parsing",
+    "input_type": "text",
+    "description": "Receipt parsing request with context"
+  },
+  {
+    "id": 12,
+    "input": "What does the paper say about retrieval-augmented generation?",
+    "expected_intent": "document_qa",
+    "input_type": "text",
+    "description": "Specific document question about RAG"
+  },
+  {
+    "id": 13,
+    "input": "Fix this SQL query: SELECT * FROM users WHERE name = John",
+    "expected_intent": "code_debugging",
+    "input_type": "text",
+    "description": "SQL syntax debugging"
+  },
+  {
+    "id": 14,
+    "input": "Add a reminder to submit the ML project by Friday",
+    "expected_intent": "task_management",
+    "input_type": "text",
+    "description": "Task creation with deadline"
+  },
+  {
+    "id": 15,
+    "input": "What is the attention mechanism and why does scaling by sqrt(dk) matter?",
+    "expected_intent": "general_chat",
+    "input_type": "text",
+    "description": "Technical ML question"
+  },
+  {
+    "id": 16,
+    "input": "class Node:\n  def __init__(self, val):\n    self.val = val\n    self.next = None\n\ndef has_cycle(head):\n  slow = head\n  fast = head\n  while fast and fast.next:\n    slow = slow.next\n    fast = fast.next\n  return slow == fast\n\nThis cycle detection doesn't work, what's wrong?",
+    "expected_intent": "code_debugging",
+    "input_type": "text",
+    "description": "Linked list cycle detection bug"
+  },
+  {
+    "id": 17,
+    "input": "How much did I spend on groceries based on the last receipt?",
+    "expected_intent": "receipt_parsing",
+    "input_type": "text",
+    "description": "Follow-up receipt question"
+  },
+  {
+    "id": 18,
+    "input": "Compare the conclusions in chapters 2 and 3 of the uploaded document",
+    "expected_intent": "document_qa",
+    "input_type": "text",
+    "description": "Cross-reference document question"
+  },
+  {
+    "id": 19,
+    "input": "Delete all completed tasks",
+    "expected_intent": "task_management",
+    "input_type": "text",
+    "description": "Bulk task deletion"
+  },
+  {
+    "id": 20,
+    "input": "Tell me a fun fact about neural networks",
+    "expected_intent": "general_chat",
+    "input_type": "text",
+    "description": "Fun fact request"
+  }
+]
