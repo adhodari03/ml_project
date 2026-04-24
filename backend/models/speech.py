@@ -39,6 +39,22 @@ class WhisperASR:
     def _load_model(self):
         """Lazy-load the Whisper model."""
         if self._model is None:
+            import os
+            try:
+                import imageio_ffmpeg
+                ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                bin_dir = os.path.dirname(ffmpeg_exe)
+                
+                # Whisper explicitly calls "ffmpeg", so create a symlink if needed
+                ffmpeg_symlink = os.path.join(bin_dir, "ffmpeg")
+                if not os.path.exists(ffmpeg_symlink):
+                    os.symlink(ffmpeg_exe, ffmpeg_symlink)
+                    
+                if bin_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] += os.pathsep + bin_dir
+            except Exception:
+                pass
+
             import whisper
             self._model = whisper.load_model(self.model_size)
         return self._model

@@ -23,6 +23,7 @@ from backend.agents.receipt_parser import ReceiptParserAgent
 from backend.agents.doc_qa import DocQAAgent
 from backend.agents.code_debugger import CodeDebuggerAgent
 from backend.agents.study_buddy import StudyBuddyAgent
+from backend.agents.finance_agent import FinanceAgent
 from backend.config import (
     ORCHESTRATOR_SYSTEM_PROMPT, GENERAL_CHAT_PROMPT
 )
@@ -48,6 +49,7 @@ class Orchestrator:
             "document_qa": DocQAAgent(self.memory),
             "code_debugging": CodeDebuggerAgent(),
             "study_buddy": StudyBuddyAgent(self.memory),
+            "personal_finance": FinanceAgent(self.memory),
         }
 
     def process_message(self, message: str, metadata: dict = None, agent_override: str = None) -> dict:

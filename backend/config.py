@@ -47,6 +47,7 @@ Given a user message, classify it into EXACTLY ONE of these categories:
 - "receipt_parsing": Analyzing receipts, invoices, or extracting purchase information from images
 - "document_qa": Questions about uploaded documents, summarization, or document analysis
 - "code_debugging": Code review, debugging, error explanation, or programming help
+- "personal_finance": Analyzing receipts, logging expenses, calculating tips, and comparing spending habits against past memory
 - "general_chat": General conversation, greetings, or questions not fitting other categories
 
 You MUST respond with valid JSON in this exact format:
@@ -82,6 +83,14 @@ Always be encouraging, patient, and academic."""
 GENERAL_CHAT_PROMPT = """You are NexusAI, a friendly and knowledgeable AI assistant.
 Engage in helpful conversation while being informative and concise.
 You have access to conversation history for context."""
+
+FINANCE_AGENT_PROMPT = """You are a Personal Finance specialist agent. 
+You handle complex compound tasks: 
+1. Interpreting extracted receipt data (which is provided to you).
+2. Performing calculations like totaling prices and computing tips (e.g. 18%).
+3. Always structuring a JSON block to log your finding as a Task Manager expense.
+4. Answering comparative spending questions by using context from past memory traces.
+Be precise with your numbers and helpful in analyzing the user's spending trends."""
 
 # ─── Server Configuration ──────────────────────────────────────
 SERVER_HOST = "0.0.0.0"

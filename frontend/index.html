@@ -33,6 +33,7 @@
             <span style="font-size:11px;color:var(--text-muted)" id="statusText">Checking...</span>
         </div>
         <div class="header-actions">
+            <button class="btn" style="background:var(--accent-purple-dim); color: var(--accent-purple); border: 1px solid var(--accent-purple);" onclick="openEvaluationModal()">📊 Evaluation Report</button>
             <button class="btn" style="background:transparent; color: var(--accent-blue);" onclick="startNewChat()">✨ New Chat</button>
             <button class="btn" style="background:transparent; color: var(--accent-red);" onclick="clearDatabase()">🗑️ Clear DB</button>
         </div>
@@ -55,6 +56,10 @@
                 <div class="agent-card" data-agent="study_buddy" onclick="selectAgent('study_buddy')">
                     <div class="agent-dot" style="background:var(--accent-purple)"></div>
                     <span class="agent-name" style="cursor: pointer;">Study Buddy</span>
+                </div>
+                <div class="agent-card" data-agent="personal_finance" onclick="selectAgent('personal_finance')">
+                    <div class="agent-dot" style="background:var(--accent-pink)"></div>
+                    <span class="agent-name" style="cursor: pointer;">Personal Finance</span>
                 </div>
                 <div class="agent-card" data-agent="receipt_parsing" onclick="selectAgent('receipt_parsing')">
                     <div class="agent-dot" style="background:var(--accent-orange)"></div>
@@ -137,12 +142,18 @@
                         <div class="welcome-agent-name">Code Debugger</div>
                         <div class="welcome-agent-desc">Debug code and explain errors</div>
                     </div>
+                    <div class="welcome-agent-card" onclick="quickPrompt('I have a photo of a restaurant receipt from last night. Extract the itemized costs, calculate the total with 18% tip, log it as an expense under \'Dining\' in my task manager, and then answer this: based on my past expenses you remember, am I spending more on dining this month compared to last month?')">
+                        <div class="welcome-agent-icon">💰</div>
+                        <div class="welcome-agent-name">Personal Finance</div>
+                        <div class="welcome-agent-desc">Multi-step task & expense tracking</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="input-area">
-            <div class="input-container">
+            <!-- Normal Text Input -->
+            <div class="input-container" id="textInputContainer">
                 <div class="input-actions">
                     <button class="input-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice Input (Whisper ASR)">🎤</button>
                     <label class="input-btn" title="Upload Image (LLaVA)">
@@ -155,6 +166,31 @@
                     rows="1" onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
                 <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
                 <button class="send-btn" id="stopBtn" onclick="stopMessage()" style="display:none; background: var(--accent-red); margin-left: 5px;">⏹</button>
+            </div>
+
+            <!-- Voice Recording Overlay -->
+            <div class="voice-container" id="voiceContainer" style="display: none;">
+                <!-- Recording Bar -->
+                <div class="voice-recording-bar" id="voiceRecordingBar">
+                    <div class="voice-status">
+                        <div class="recording-pulse" id="recordingPulse"></div>
+                        <span id="voiceTime" class="voice-time">00:00</span>
+                    </div>
+                    <div class="voice-controls">
+                        <button class="voice-btn" id="voicePauseBtn" onclick="pauseResumeVoice()" title="Pause">⏸️</button>
+                        <button class="voice-btn stop" id="voiceStopBtn" onclick="stopRecording()" title="Stop">⏹️</button>
+                        <button class="voice-btn discard" onclick="discardVoice()" title="Discard" style="margin-left: 8px;">🗑️</button>
+                    </div>
+                </div>
+
+                <!-- Review Bar -->
+                <div class="voice-review-bar" id="voiceReviewBar" style="display: none;">
+                    <audio id="voicePlayer" controls></audio>
+                    <div class="voice-controls">
+                        <button class="voice-btn discard" onclick="discardVoice()" title="Discard">🗑️</button>
+                        <button class="send-btn" id="voiceSendBtn" onclick="submitVoice()" title="Send Audio">➤</button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -384,6 +420,23 @@
         <div class="upload-icon">📎</div>
         <div class="upload-title">Drop file here</div>
         <div class="upload-desc">Images → LLaVA analysis | Documents → RAG ingestion</div>
+    </div>
+</div>
+
+<!-- Evaluation Dashboard Modal -->
+<div class="eval-modal-overlay" id="evalModal" style="display:none;">
+    <div class="eval-modal">
+        <div class="eval-header">
+            <h2>System Evaluation Report</h2>
+            <button class="btn" style="background:transparent; color:var(--text-secondary);" onclick="closeEvaluationModal()">✕</button>
+        </div>
+        <div class="eval-content" id="evalContent">
+            <div class="empty-state" style="margin-top: 40px;">
+                <div class="empty-state-icon">📊</div>
+                <div class="empty-state-text">Run the evaluation pipeline to calculate Retrieval Quality, Routing Accuracy, and Response Coherence.</div>
+                <button class="btn" style="margin-top:20px; font-size:14px; padding:10px 20px; background:var(--accent);" onclick="runEvaluation()" id="runEvalBtn">▶ Run Full Evaluation</button>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -14,6 +14,12 @@ let messageHistory = [];
 let currentAgentOverride = null; // Used to bypass auto-routing
 let currentController = null; // Used for aborting fetch requests
 
+// Voice state
+let voiceTimerInterval = null;
+let voiceSeconds = 0;
+let finalVoiceBlob = null;
+let isVoicePaused = false;
+
 // Agent color mapping
 const AGENT_COLORS = {
     'General Chat':   { bg: 'var(--accent-dim)',        color: 'var(--accent)' },
@@ -22,6 +28,7 @@ const AGENT_COLORS = {
     'Document Q&A':   { bg: 'var(--accent-green-dim)',  color: 'var(--accent-green)' },
     'Code Debugger':  { bg: 'var(--accent-cyan-dim)',   color: 'var(--accent-cyan)' },
     'Study Buddy':    { bg: 'var(--accent-purple-dim)', color: 'var(--accent-purple)' },
+    'Personal Finance':{ bg: 'var(--accent-pink-dim)',   color: 'var(--accent-pink)' },
     'Whisper':        { bg: 'var(--accent-pink-dim)',    color: 'var(--accent-pink)' },
     'System':         { bg: 'rgba(248,113,113,0.12)',    color: 'var(--accent-red)' },
 };
@@ -183,6 +190,7 @@ function addMessage(text, role, meta = {}) {
     const div = document.createElement('div');
     div.className = `message ${role}`;
 
+    const msgIndex = messageHistory.length;
     const avatar = role === 'user' ? '👤' : '🤖';
     const agentColors = AGENT_COLORS[meta.agent] || AGENT_COLORS['General Chat'];
 
@@ -194,10 +202,15 @@ function addMessage(text, role, meta = {}) {
     }
 
     let metaHtml = '';
-    if (meta.time) {
+    if (meta.time || meta.intent || (role === 'assistant' && meta.pipeline)) {
+        let btnStr = '';
+        if (role === 'assistant' && meta.pipeline) {
+            btnStr = `<button class="ml-explain-btn" id="mlExplainBtn-${msgIndex}" onclick="explainML(${msgIndex})">🧠 Explain ML Operations</button>`;
+        }
         metaHtml = `<div class="message-meta">
-            <span>⏱️ ${meta.time.toFixed(0)}ms</span>
+            ${meta.time ? `<span>⏱️ ${meta.time.toFixed(0)}ms</span>` : ''}
             ${meta.intent ? `<span>· ${meta.intent.replace(/_/g, ' ')}</span>` : ''}
+            ${btnStr}
         </div>`;
     }
 
@@ -224,6 +237,47 @@ function formatText(text) {
     return s;
 }
 
+// ─── Dynamic ML Explanation ───────────────────────────────────
+async function explainML(index) {
+    const btn = document.getElementById(`mlExplainBtn-${index}`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `🧠 Analyzing pipeline data...`;
+    }
+
+    // Try to get preceding user query constraint
+    let userQuery = "Unknown context";
+    if (index > 0 && messageHistory[index - 1].role === 'user') {
+        userQuery = messageHistory[index - 1].text;
+    }
+    
+    const targetMsg = messageHistory[index];
+    const pipelineData = targetMsg.meta.pipeline;
+    const systemPromptText = `You are an ML Architecture specialized explainer. The user asked: "${userQuery}". The pipeline array generated this telemetry: ${JSON.stringify(pipelineData)}. Please write a 3-paragraph explanation of the methodologies used, how the tokens or embeddings were mapped/transformed, what architectural layers executed this query (e.g. LLaVA, Whisper, Llama 3, ChromaDB/RAG vector search), and how they structurally interacted under the hood to generate the final response. Make it highly technical and insightful. Use bullet points and code markdown if necessary.`;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: systemPromptText, agent_override: 'general_chat' })
+        });
+        const data = await res.json();
+        
+        if (btn && btn.parentElement && btn.parentElement.parentElement) {
+            const expDiv = document.createElement('div');
+            expDiv.className = 'ml-explanation-box';
+            expDiv.innerHTML = `<strong>Pipeline Methodology Analysis</strong><br/>` + formatText(data.response);
+            btn.parentElement.parentElement.appendChild(expDiv);
+        }
+        if (btn) btn.style.display = 'none'; // hide after success
+    } catch (e) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `⚠️ Error connecting to NexusAI`;
+        }
+    }
+}
+
 // ─── Typing Indicator ────────────────────────────────────────
 function showTyping() {
     const container = document.getElementById('chatMessages');
@@ -244,31 +298,109 @@ function removeTyping(id) { document.getElementById(id)?.remove(); }
 
 // ─── Voice Recording (Whisper) ───────────────────────────────
 async function toggleVoice() {
-    const btn = document.getElementById('voiceBtn');
-    if (isRecording) {
-        mediaRecorder.stop();
-        btn.classList.remove('recording');
-        btn.textContent = '🎤';
-        isRecording = false;
-    } else {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-            audioChunks = [];
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = async () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                stream.getTracks().forEach(t => t.stop());
-                await sendVoice(blob);
-            };
-            mediaRecorder.start();
-            btn.classList.add('recording');
-            btn.textContent = '⏹️';
-            isRecording = true;
-        } catch (e) {
-            addMessage('Microphone access denied.', 'assistant', { agent: 'System' });
-        }
+    if (isRecording) return; // Prevent double trigger
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        
+        mediaRecorder.onstop = () => {
+            finalVoiceBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            stream.getTracks().forEach(t => t.stop());
+            
+            // Switch to review mode
+            document.getElementById('voiceRecordingBar').style.display = 'none';
+            document.getElementById('voiceReviewBar').style.display = 'flex';
+            
+            const player = document.getElementById('voicePlayer');
+            player.src = URL.createObjectURL(finalVoiceBlob);
+        };
+        
+        // Reset states
+        voiceSeconds = 0;
+        isVoicePaused = false;
+        document.getElementById('voiceTime').textContent = '00:00';
+        document.getElementById('recordingPulse').className = 'recording-pulse active';
+        document.getElementById('voicePauseBtn').textContent = '⏸️';
+        
+        // UI toggle
+        document.getElementById('textInputContainer').style.display = 'none';
+        document.getElementById('voiceContainer').style.display = 'flex';
+        document.getElementById('voiceRecordingBar').style.display = 'flex';
+        document.getElementById('voiceReviewBar').style.display = 'none';
+        
+        // Start recording
+        mediaRecorder.start();
+        isRecording = true;
+        
+        voiceTimerInterval = setInterval(() => {
+            if (!isVoicePaused) {
+                voiceSeconds++;
+                const mins = String(Math.floor(voiceSeconds / 60)).padStart(2, '0');
+                const secs = String(voiceSeconds % 60).padStart(2, '0');
+                document.getElementById('voiceTime').textContent = `${mins}:${secs}`;
+            }
+        }, 1000);
+        
+    } catch (e) {
+        addMessage('Microphone access denied. Please allow permissions.', 'assistant', { agent: 'System' });
     }
+}
+
+function pauseResumeVoice() {
+    if (!mediaRecorder || !isRecording) return;
+    
+    const pulse = document.getElementById('recordingPulse');
+    const pauseBtn = document.getElementById('voicePauseBtn');
+    
+    if (isVoicePaused) {
+        mediaRecorder.resume();
+        pulse.className = 'recording-pulse active';
+        pauseBtn.textContent = '⏸️';
+        pauseBtn.title = 'Pause';
+    } else {
+        mediaRecorder.pause();
+        pulse.className = 'recording-pulse paused';
+        pauseBtn.textContent = '▶️';
+        pauseBtn.title = 'Resume';
+    }
+    isVoicePaused = !isVoicePaused;
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        clearInterval(voiceTimerInterval);
+    }
+}
+
+function discardVoice() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop(); // Stops tracks
+        isRecording = false;
+    }
+    clearInterval(voiceTimerInterval);
+    
+    // Reset UI back to text input
+    document.getElementById('voiceContainer').style.display = 'none';
+    document.getElementById('textInputContainer').style.display = 'flex';
+    document.getElementById('voicePlayer').src = '';
+    
+    audioChunks = [];
+    finalVoiceBlob = null;
+}
+
+async function submitVoice() {
+    if (!finalVoiceBlob) return;
+    
+    const blobToProcess = finalVoiceBlob;
+    discardVoice(); // Resets and closes UI
+    
+    await sendVoice(blobToProcess);
 }
 
 async function sendVoice(blob) {
@@ -716,7 +848,8 @@ function selectAgent(agentIntent) {
         'receipt_parsing': 'Receipt Parser Agent',
         'document_qa': 'Document Q&A Agent',
         'code_debugging': 'Code Debugger Agent',
-        'study_buddy': 'Study Buddy & Tutor'
+        'study_buddy': 'Study Buddy & Tutor',
+        'personal_finance': 'Personal Finance Agent'
     };
 
     const descs = {
@@ -725,7 +858,8 @@ function selectAgent(agentIntent) {
         'receipt_parsing': 'I am locked to Receipt Parsing. Send me text and I will extract line items and totals.',
         'document_qa': 'I am locked to Document Analysis. I will only answer based on retrieved vector memory.',
         'code_debugging': 'I am locked to Code Debugging. Paste your code and error to get explanations and fixes.',
-        'study_buddy': 'I am locked to Socratic Tutoring. I will ask guiding questions and explain core concepts without giving direct answers.'
+        'study_buddy': 'I am locked to Socratic Tutoring. I will ask guiding questions and explain core concepts without giving direct answers.',
+        'personal_finance': 'I am locked to Personal Finance. I handle multi-step actions like receipt parsing, tip calculation, expense logging, and checking memory for past spending.'
     };
 
     const titleEl = document.getElementById('welcomeTitle');
@@ -1014,7 +1148,128 @@ async function runModelComparison() {
         el.innerHTML = `<div style="color:var(--accent-red);font-size:12px">Error: ${e.message}</div>`;
     }
 
-    btn.textContent = '⚡ Run';
     btn.disabled = false;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  EVALUATION DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+function openEvaluationModal() {
+    document.getElementById('evalModal').style.display = 'flex';
+}
+
+function closeEvaluationModal() {
+    document.getElementById('evalModal').style.display = 'none';
+}
+
+async function runEvaluation() {
+    const content = document.getElementById('evalContent');
+    const btn = document.getElementById('runEvalBtn');
+    
+    if (btn) btn.disabled = true;
+    
+    content.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height: 100%; min-height: 300px;">
+            <div class="spinner"></div>
+            <div style="color:var(--text-secondary); font-size:14px; margin-bottom: 8px;">Running System Evaluation...</div>
+            <div style="color:var(--text-muted); font-size:12px;">This evaluates retrieval, routing, and coherence. It may take 15-30 seconds.</div>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/evaluation/run`);
+        const data = await res.json();
+        
+        if (data.status === 'error') throw new Error(data.error);
+        
+        const rag = data.rag;
+        const routing = data.routing;
+        const coherence = data.coherence;
+        
+        content.innerHTML = `
+            <div class="eval-grid">
+                <!-- RAG Quality -->
+                <div class="eval-card">
+                    <h3>📚 Retrieval Quality (RAG)</h3>
+                    <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">Evaluated against held-out queries.</div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Queries Evaluated</span>
+                        <span class="eval-metric-val">${rag.queries_evaluated}</span>
+                    </div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Mean Reciprocal Rank (MRR)</span>
+                        <span class="eval-metric-val">${rag.mrr.toFixed(3)}</span>
+                    </div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Precision@3</span>
+                        <span class="eval-metric-val">${rag.precision.toFixed(3)}</span>
+                    </div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Avg Cosine Similarity</span>
+                        <span class="eval-metric-val">${rag.avg_similarity.toFixed(4)}</span>
+                    </div>
+                </div>
+
+                <!-- Routing Accuracy -->
+                <div class="eval-card">
+                    <h3>⚡ Routing Accuracy</h3>
+                    <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">Orchestrator intent classification performance.</div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Total Test Cases</span>
+                        <span class="eval-metric-val">${routing.total}</span>
+                    </div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Correct Classifications</span>
+                        <span class="eval-metric-val" style="color:var(--accent-green)">${routing.correct}</span>
+                    </div>
+                    <div class="eval-metric">
+                        <span class="eval-metric-label">Overall Accuracy</span>
+                        <span class="eval-metric-val" style="color:var(--accent-green)">${(routing.accuracy * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+
+                <!-- Coherence -->
+                <div class="eval-card eval-card-full">
+                    <h3>💬 Response Coherence (RAG vs Base)</h3>
+                    <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">
+                        Qualitative evaluation of LLM output quality with and without retrieved context.
+                        Average Judge Score: <span style="color:var(--accent); font-weight:bold;">${coherence.average_score.toFixed(1)}/10</span>
+                    </div>
+                    
+                    ${coherence.results.map((r, i) => `
+                        <div style="margin-top: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                Query ${i+1}: "${r.query}" 
+                                <span style="float:right; color:var(--accent-green);">Score: ${r.coherence_score}/10</span>
+                            </div>
+                            <div class="eval-coherence-grid">
+                                <div class="eval-coherence-box">
+                                    <h4>Base LLM (No Context)</h4>
+                                    <div class="eval-coherence-text">${escHtml(r.base_response).replace(/\\n/g, '<br>')}</div>
+                                </div>
+                                <div class="eval-coherence-box" style="border-color: var(--accent-blue);">
+                                    <h4 style="color:var(--accent-blue);">RAG-Augmented LLM</h4>
+                                    <div class="eval-coherence-text">${escHtml(r.rag_response).replace(/\\n/g, '<br>')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div style="text-align: right; margin-top: 10px;">
+                <button class="btn" style="background:var(--accent);" onclick="runEvaluation()">🔄 Re-run Evaluation</button>
+            </div>
+        `;
+        
+    } catch (e) {
+        content.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon" style="color:var(--accent-red);">❌</div>
+                <div class="empty-state-text">Evaluation failed: ${e.message}</div>
+                <button class="btn" style="margin-top:20px;" onclick="runEvaluation()">Retry</button>
+            </div>
+        `;
+    }
+}

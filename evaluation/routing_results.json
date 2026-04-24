@@ -1,0 +1,147 @@
+{
+  "accuracy": 0.6,
+  "total": 20,
+  "correct": 12,
+  "results": [
+    {
+      "id": 1,
+      "correct": false,
+      "expected": "task_management",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 2,
+      "correct": true,
+      "expected": "document_qa",
+      "predicted": "document_qa",
+      "confidence": 0.9
+    },
+    {
+      "id": 3,
+      "correct": true,
+      "expected": "code_debugging",
+      "predicted": "code_debugging",
+      "confidence": 0.9
+    },
+    {
+      "id": 4,
+      "correct": false,
+      "expected": "receipt_parsing",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 5,
+      "correct": true,
+      "expected": "general_chat",
+      "predicted": "general_chat",
+      "confidence": 0.9
+    },
+    {
+      "id": 6,
+      "correct": true,
+      "expected": "task_management",
+      "predicted": "task_management",
+      "confidence": 0.9
+    },
+    {
+      "id": 7,
+      "correct": true,
+      "expected": "document_qa",
+      "predicted": "document_qa",
+      "confidence": 0.9
+    },
+    {
+      "id": 8,
+      "correct": false,
+      "expected": "code_debugging",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 9,
+      "correct": true,
+      "expected": "general_chat",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 10,
+      "correct": true,
+      "expected": "task_management",
+      "predicted": "task_management",
+      "confidence": 0.9
+    },
+    {
+      "id": 11,
+      "correct": true,
+      "expected": "receipt_parsing",
+      "predicted": "receipt_parsing",
+      "confidence": 0.9
+    },
+    {
+      "id": 12,
+      "correct": false,
+      "expected": "document_qa",
+      "predicted": "study_buddy",
+      "confidence": 0.8
+    },
+    {
+      "id": 13,
+      "correct": false,
+      "expected": "code_debugging",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 14,
+      "correct": false,
+      "expected": "task_management",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 15,
+      "correct": true,
+      "expected": "general_chat",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 16,
+      "correct": false,
+      "expected": "code_debugging",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    },
+    {
+      "id": 17,
+      "correct": false,
+      "expected": "receipt_parsing",
+      "predicted": "personal_finance",
+      "confidence": 0.9
+    },
+    {
+      "id": 18,
+      "correct": true,
+      "expected": "document_qa",
+      "predicted": "document_qa",
+      "confidence": 0.9
+    },
+    {
+      "id": 19,
+      "correct": true,
+      "expected": "task_management",
+      "predicted": "task_management",
+      "confidence": 0.9
+    },
+    {
+      "id": 20,
+      "correct": true,
+      "expected": "general_chat",
+      "predicted": "general_chat",
+      "confidence": 0.5
+    }
+  ]
+}

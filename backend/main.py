@@ -531,6 +531,30 @@ async def compare_models(request: ChatRequest):
         return {"results": [], "error": str(e)}
 
 
+# ─── Evaluation Dashboard ───────────────────────────────────
+
+@app.get("/api/evaluation/run")
+async def run_evaluation():
+    """Run all evaluation metrics for the dashboard."""
+    try:
+        from evaluation.eval_rag import evaluate_rag
+        from evaluation.eval_routing import evaluate_routing
+        from evaluation.eval_coherence import evaluate_coherence
+        
+        rag_results = evaluate_rag()
+        routing_results = evaluate_routing()
+        coherence_results = evaluate_coherence()
+        
+        return {
+            "status": "success",
+            "rag": rag_results,
+            "routing": routing_results,
+            "coherence": coherence_results
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 # ─── WebSocket for Streaming ─────────────────────────────────
 
 @app.websocket("/ws/chat")
