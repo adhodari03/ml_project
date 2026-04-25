@@ -154,8 +154,21 @@ async def voice_input(audio: UploadFile = File(...)):
                 "memory_stats": {}
             }
 
-        text = transcription["text"]
+        text = transcription.get("text", "").strip()
         whisper_pipeline = transcription.get("pipeline", [])
+
+        if not text:
+            return {
+                "response": "I didn't catch that. Could you please try speaking again?",
+                "transcription": "",
+                "pipeline": whisper_pipeline,
+                "agent": "System",
+                "intent": "general_chat",
+                "confidence": 1.0,
+                "reasoning": "Audio transcription returned an empty string.",
+                "total_time_ms": 0,
+                "memory_stats": {}
+            }
 
         # Process transcribed text through orchestrator
         orch = get_orchestrator()

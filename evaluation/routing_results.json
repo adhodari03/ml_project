@@ -1,7 +1,7 @@
 {
-  "accuracy": 0.6,
+  "accuracy": 0.55,
   "total": 20,
-  "correct": 12,
+  "correct": 11,
   "results": [
     {
       "id": 1,
@@ -75,10 +75,10 @@
     },
     {
       "id": 11,
-      "correct": true,
+      "correct": false,
       "expected": "receipt_parsing",
-      "predicted": "receipt_parsing",
-      "confidence": 0.9
+      "predicted": "general_chat",
+      "confidence": 0.5
     },
     {
       "id": 12,

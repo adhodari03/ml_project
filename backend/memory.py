@@ -179,6 +179,9 @@ class MemoryStore:
         if collection.count() == 0:
             return {"results": [], "pipeline": [], "total_time_ms": 0}
 
+        if not query or not query.strip():
+            return {"results": [], "pipeline": [], "total_time_ms": 0}
+
         # ── Stage 1: Query Embedding ──
         embed_start = time.time()
         query_embedding = self._get_embedding(query)
